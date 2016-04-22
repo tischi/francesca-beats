@@ -8,7 +8,7 @@ Fiji with java1.8
 
 ## Installation
 
-- dowload and unzip: https://github.com/tischi/Kaia_Achim_3D_CellCount/archive/master.zip
+- dowload and unzip: https://github.com/tischi/francesca-beats/archive/master.zip
 - copy the .jar file to your Fiji plugins folder
 - copy the two .py files in some folder (can be anywhere)
 
