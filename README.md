@@ -20,10 +20,12 @@ Fiji with java 1.8
 
 ## Output
 
-The script finds the N largest regions where beating occurs. It measures the beating frequencies in these N regions.
-N is an input parameter: __n rois__
+The script finds the N (input parameter __n rois__) largest region centers where beating occurs. 
+It measures the beating frequencies in these region centers.
+
 The output values are as such:
-- F1_R1_NUM = frequency 1 in region 1; to facilitate comparison with raw data units are __period length in frames__; to compute actual frequencies in Hz you have to compute 1/(F1_R1_NUM*dt), where dt is the time difference between frames
+
+- F1_R1_NUM = frequency 1 in region 1; to facilitate comparison with raw data the units are __period length in frames__; to compute actual frequencies in Hz you have to compute 1/(F1_R1_NUM*dt), where dt is the time difference between frames.
 - A1_R1_NUM = amplitude of frequency 1 
 
 Frequencies are sorted according to their amplitude => F1 has the highest amplitude
