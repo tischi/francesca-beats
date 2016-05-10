@@ -32,6 +32,8 @@ Frequencies are sorted according to their amplitude => F1 has the highest amplit
 
 Regions are sorted according to their diameter => R1 has the largest diameter
 
+The regions can be visualised by clicking on the __REGIONS__ checkboxes, e.g. below the __BEATS__ image.
+
 
 
 
