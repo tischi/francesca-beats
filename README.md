@@ -9,9 +9,9 @@ Fiji with java 1.8
 ## Installation
 
 - dowload and unzip: https://github.com/tischi/francesca-beats/archive/master.zip
-- copy the .jar file to your Fiji plugins folder 
-- copy the folder named to your Fiji plugins folder
-- copy the two .py files together in one arbiratry folder
+- copy the __AutoMic_JavaTools-1.0.0-08032016.jar__ file to your Fiji plugins folder 
+- copy the __ParallelFFTJ__ folder to your Fiji plugins folder
+- copy the two __*.py__ files together in one arbiratry folder
 
 ## Usage
 
