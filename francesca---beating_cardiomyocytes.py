@@ -24,6 +24,11 @@ from loci.plugins.in import ImporterOptions
 from automic.table import TableModel			# this class stores the data for the table
 from automic.table import ManualControlFrame 	#this class visualises TableModel via GUI
 from java.io import File
+from ah.utils import ROIManipulator
+
+# ParallelFFTJ
+from edu.emory.mathcs.parallelfftj import FloatTransformer
+from edu.emory.mathcs.parallelfftj import SpectrumType
 
 # import my analysis function collection
 import os, sys, inspect
@@ -34,7 +39,16 @@ if this_folder not in sys.path:
 import ct_analysis_functions as af
 reload(af)
 
-all_results = []
+def mean(x):
+  mean = sum(x) / len(x)
+  return mean
+  
+def sd(x):
+  mean = sum(x) / len(x)
+  differences = [xx - mean for xx in x]
+  sq_differences = [xx**2 for xx in differences]
+  sd = sqrt(sum(sq_differences)/len(x))
+  return sd
 
 # Structure for batch analysis:
 # 
@@ -79,6 +93,7 @@ def analyze(iDataSet, tbModel, p, output_folder):
 
   filepath = tbModel.getFileAPth(iDataSet, "RAW", "IMG")
   filename = tbModel.getFileName(iDataSet, "RAW", "IMG") 
+  print("loading: "+filepath)
   IJ.run("Bio-Formats Importer", "open=["+filepath+"] color_mode=Default view=Hyperstack stack_order=XYCZT");
   imp = IJ.getImage()
   
@@ -91,7 +106,6 @@ def analyze(iDataSet, tbModel, p, output_folder):
   #
   # SCALING
   #
-
   IJ.run(imp, "Scale...", "x="+str(p["scale"])+" y="+str(p["scale"])+" z=1.0 interpolation=Bilinear average process create"); 
   imp = IJ.getImage()
   # save output file
@@ -103,7 +117,7 @@ def analyze(iDataSet, tbModel, p, output_folder):
   # CONVERSION
   #
   
-  IJ.run(imp, "8-bit", "");
+  #IJ.run(imp, "8-bit", "");
  
   
   #
@@ -119,110 +133,123 @@ def analyze(iDataSet, tbModel, p, output_folder):
   #
   
   # IJ.run(imp, "Subtract...", "value=32768 stack");
-  
-  #
-  # ENHANCEMENT
-  #
-  
-  IJ.run(imp, "Stack Difference", "gap=1"); imp = IJ.getImage()
-  IJ.run(imp, "32-bit", "");
-  IJ.run(imp, "Variance...", "radius=5 stack");
 
-  # make output file
-  output_file = filename+"--beats.tif"
-  IJ.saveAs(IJ.getImage(), "TIFF", os.path.join(output_folder, output_file))
-  tbModel.setFileAPth(output_folder, output_file, iDataSet, "BEATS","IMG")
-    
-  #
-  # SEGMENTATION
-  # 
-
-  #IJ.setMinAndMax(imp, 0, 4095); IJ.run(imp, "16-bit", "");
-  #IJ.run(imp, "3D Spot Segmentation", "seeds_threshold="+str(p["threshold"])+" local_background=0 radius_0=2 radius_1=20 radius_2=22 weigth=0.5 radius_max=10 sd_value=1 local_threshold=[Local Mean] seg_spot=Block volume_min=1 volume_max=1000000 seeds=Automatic spots="+imp.getTitle()+"radius_for_seeds=2 output=[Label Image]");
-  # get number of objects in 3D
-  #imp_label = IJ.getImage()
-  #num_objects = StackStatistics(imp_label).max
-  #imp_bw = af.threshold(imp_label, 1)
-
-  #
-  # MEASURE
-  #
-
-  IJ.run(imp, "Plot Z-axis Profile", "");
-  output_file = filename+"--plot.tif"
-  IJ.saveAs(IJ.getImage(), "TIFF", os.path.join(output_folder, output_file))
-  tbModel.setFileAPth(output_folder, output_file, iDataSet, "PLOT","IMG")
-
-  IJ.run(imp, "Select All", "");
-  rm = RoiManager(True)
-  rm.addRoi(imp.getRoi());
-  rt = rm.multiMeasure(imp); #print(rt.getColumnHeadings);
-  x = rt.getColumn(rt.getColumnIndex("Mean1"))
-
-  peak_pos = []
-  peak_height = []
-  for i in range(1,len(x)-1):
-    if (x[i]>x[i-1]) and (x[i]>x[i+1]):
-      peak_pos.append(i)
-      peak_height.append(float(x[i]))
-  peak_dt = []
-  for i in range(1,len(peak_pos)):
-    peak_dt.append(float(peak_pos[i]-peak_pos[i-1]))
-
-  def mean(x):
-    mean = sum(x) / len(x)
-    return mean
-  
-  def sd(x):
-    mean = sum(x) / len(x)
-    differences = [xx - mean for xx in x]
-    sq_differences = [xx**2 for xx in differences]
-    sd = sqrt(sum(sq_differences)/len(x))
-    return sd
-
-  tbModel.setNumVal(round(mean(peak_dt),3), iDataSet, "PeakDiff_mean")
-  tbModel.setNumVal(round(sd(peak_dt),3), iDataSet, "PeakDiff_sd")
-  tbModel.setNumVal(round(mean(peak_height),3), iDataSet, "PeakHeight_mean")
-  tbModel.setNumVal(round(sd(peak_height),3), iDataSet, "PeakHeight_sd")
-  
-  #
-  # EVALUATE MEASUREMENTS
-  #
-
-  #print rt.getColumnHeadings()
-  
-  '''
-  issues = ""
-  tbModel.setNumVal(num_objects, iDataSet, "Segmented_Particles")
-  
-  if num_objects == 0:
-    issues = issues + " no_particles "  
-  elif num_objects > 1:
-    issues = issues + " multiple_particles " 
-  else:    
-    # not round
-    rc  = rt.getColumn(rt.getColumnIndex("Round"))
-    tbModel.setNumVal(min(rc), iDataSet, "Minimal_Roundness")
-    if min(rc) < p["minimal_roundness"]:
-      issues = issues + " elongated "      
-    # shifting
-    xy  = zip(rt.getColumn(rt.getColumnIndex("X")), rt.getColumn(rt.getColumnIndex("Y")))
-    shifts = [math.sqrt((v[0]-xy[0][0])**2 + (v[1]-xy[0][1])**2) for v in xy]
-    tbModel.setNumVal(max(shifts), iDataSet, "Max_Shift")
-    if max(shifts) > p["maximal_shift"]:
-      issues = issues + " shifting "
+  IJ.run(imp, "Z Project...", "projection=[Average Intensity]");
+  imp_avg = IJ.getImage()
+  ic = ImageCalculator();
+  imp = ic.run("Subtract create 32-bit stack", imp, imp_avg);
  
-  tbModel.setValue(issues, iDataSet, "Issues")
-  tbModel.setBoolVal(len(issues)==0, iDataSet, "OK")
-  '''
+  #
+  # REGION SEGMENTATION
+  #
   
+  imp1 = Duplicator().run(imp, 1, imp.getImageStackSize()-1)
+  imp2 = Duplicator().run(imp, 2, imp.getImageStackSize())
+  imp_diff = ic.run("Subtract create 32-bit stack", imp1, imp2);
+  #imp_diff.show()
+
+  IJ.run(imp_diff, "Z Project...", "projection=[Standard Deviation]");
+  imp_diff_sd = IJ.getImage()
+ 
+  # save
+  IJ.run(imp_diff_sd, "Gaussian Blur...", "sigma=5");
+  output_file = filename+"--sd.tif"
+  IJ.saveAs(imp_diff_sd, "TIFF", os.path.join(output_folder, output_file))
+  tbModel.setFileAPth(output_folder, output_file, iDataSet, "SD","IMG")
+
+  IJ.run(imp_diff_sd, "Enhance Contrast", "saturated=0.35");
+  IJ.run(imp_diff_sd, "8-bit", "");
+  IJ.run(imp_diff_sd, "Properties...", "unit=p pixel_width=1 pixel_height=1 voxel_depth=1");
+  IJ.run(imp_diff_sd, "Auto Local Threshold", "method=Niblack radius=60 parameter_1=2 parameter_2=0 white");
+  
+  rm = ROIManipulator.getEmptyRm()
+  IJ.run(imp_diff_sd, "Analyze Particles...", "add");
+
+
+  # select N largest Rois
+  diameter_roi = []
+  for i in range(rm.getCount()):
+    roi = rm.getRoi(i)
+    diameter_roi.append([roi.getFeretsDiameter(), roi])
+  diameter_roi = sorted(diameter_roi, reverse=True)
+  print diameter_roi
+
+  rm.reset()
+  for i in range(min(len(diameter_roi), p["n_rois"])):
+    rm.addRoi(diameter_roi[i][1]) 
+  
+  # save 
+  output_file = filename+"--rois"
+  ROIManipulator.svRoisToFl(output_folder, output_file, rm.getRoisAsArray())  
+  tbModel.setFileAPth(output_folder, output_file+".zip", iDataSet, "REGIONS","ROI")
+
+   
+  #
+  # FFT in each region
+  #
+
+  IJ.run(imp, "Variance...", "radius=2 stack");
+  output_file = filename+"--beats.tif"
+  IJ.saveAs(imp, "TIFF", os.path.join(output_folder, output_file))
+  tbModel.setFileAPth(output_folder, output_file, iDataSet, "BEATS","IMG")
+  
+  n = rm.getCount()
+  for i_roi in range(n):
+    imp_selection = Duplicator().run(imp)
+    rm.select(imp_selection, i_roi)
+    IJ.run(imp_selection, "Clear Outside", "stack");
+    imp_selection.show()
+    
+    # FFT using Parallel FFTJ
+    transformer = FloatTransformer(imp_selection.getStack())
+    transformer.fft()
+    imp_fft = transformer.toImagePlus(SpectrumType.FREQUENCY_SPECTRUM)
+    imp_fft.show()
+
+    # Analyze FFt
+    IJ.run(imp_fft, "Gaussian Blur 3D...", "x=0 y=0 z=3");
+    IJ.run(imp_fft, "Plot Z-axis Profile", "");
+    output_file = filename+"--Region"+str(i_roi+1)+"--fft.tif"
+    IJ.saveAs(IJ.getImage(), "TIFF", os.path.join(output_folder, output_file))
+    tbModel.setFileAPth(output_folder, output_file, iDataSet, "FFT_R"+str(i_roi+1),"IMG")
+
+    IJ.run(imp_fft, "Select All", "");
+    rm.addRoi(imp_fft.getRoi())
+    rm.select(rm.getCount())
+    rt = ResultsTable()
+    rt = rm.multiMeasure(imp_fft); #print(rt.getColumnHeadings);
+    x = rt.getColumn(rt.getColumnIndex("Mean1"))
+    #rm.runCommand("delete")
+    
+    peak_pos = []
+    peak_height = []
+    x_min = 10
+    for i in range(x_min,len(x)/2):
+      if (x[i]>x[i-1]) and (x[i]>x[i+1]):
+        peak_pos.append(i)
+        peak_height.append(float(x[i]))
+
+    #print(peak_pos)
+    #print(peak_height)
+    peak_height, peak_pos = zip(*sorted(zip(peak_height, peak_pos), reverse=True))
+    print(peak_height)
+    print(peak_pos)
+    print(len(x))
+    
+    n_max = 3
+    for i_max in range(min(len(peak_height),n_max)):
+      tbModel.setNumVal(round(float(len(x))/float(peak_pos[i_max]),2), iDataSet, "F"+str(i_max+1)+"_R"+str(i_roi+1))
+      tbModel.setNumVal(int(peak_height[i_max]), iDataSet, "A"+str(i_max+1)+"_R"+str(i_roi+1))
+        
 
 #
 # ANALYZE INPUT FILES
 #
 def determine_input_files(foldername, tbModel):
   
-  pattern = re.compile('(.*).czi')  
+  pattern = re.compile('(.*).czi') 
+  #pattern = re.compile('(.*)--beats.tif') 
+   
   i = 0
   for root, directories, filenames in os.walk(foldername):
 	for filename in filenames:
@@ -276,36 +303,45 @@ if __name__ == '__main__':
   if not os.path.isdir(output_folder):
     os.mkdir(output_folder)
 
- 
-  #
-  # INIT OUTPUT TABLE
-  #
-  tbModel = TableModel(input_folder)
-  tbModel.addFileColumns('RAW','IMG')
-  tbModel.addFileColumns('INPUT','IMG')
-  tbModel.addFileColumns('BEATS','IMG')
-  tbModel.addFileColumns('PLOT','IMG')
-  tbModel.addValColumn("PeakDiff_mean", "NUM")
-  tbModel.addValColumn("PeakDiff_sd", "NUM")
-  tbModel.addValColumn("PeakHeight_mean", "NUM")
-  tbModel.addValColumn("PeakHeight_sd", "NUM") 
-  tbModel.addColumn("Issues")
-  tbModel.addValColumn("OK", "BOOL")
-  frame=ManualControlFrame(tbModel)
-  frame.setVisible(True)
-
+  
   #
   # DETERMINE INPUT FILES
   #
+  tbModel = TableModel(input_folder)
+  tbModel.addFileColumns('RAW','IMG')
   tbModel = determine_input_files(input_folder, tbModel)
-  
+
   #
   # GET PARAMETERS
   #
   p = dict()
   p["scale"] = 0.2
-    
+  p["n_rois"] = 2
+ 
   to_be_analyzed, p = get_parameters(p, tbModel.getRowCount())
+
+  #
+  # POPULATE AND SHOW INTERACTIVE TABLE
+  #
+
+  for i in range(p["n_rois"]):
+    for j in range(3):
+      tbModel.addValColumn("F"+str(j+1)+"_R"+str(i+1), "NUM")
+      
+  for i in range(p["n_rois"]):
+    for j in range(3):
+      tbModel.addValColumn("A"+str(j+1)+"_R"+str(i+1), "NUM")
+ 
+  tbModel.addFileColumns('INPUT','IMG')
+  tbModel.addFileColumns('BEATS','IMG')
+  tbModel.addFileColumns('SD','IMG')
+  tbModel.addFileColumns('REGIONS','ROI')
+  
+  for i in range(p["n_rois"]):
+    tbModel.addFileColumns('FFT_R'+str(i+1),'IMG')
+  
+  frame=ManualControlFrame(tbModel)
+  frame.setVisible(True)
   
   #
   # ANALYZE
