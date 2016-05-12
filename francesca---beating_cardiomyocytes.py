@@ -219,25 +219,24 @@ def analyze(iDataSet, tbModel, p, output_folder):
     x = rt.getColumn(rt.getColumnIndex("Mean1"))
     #rm.runCommand("delete")
     
-    peak_pos = []
-    peak_height = []
+    peak_height_pos = []
     x_min = 10
     for i in range(x_min,len(x)/2):
       if (x[i]>x[i-1]) and (x[i]>x[i+1]):
-        peak_pos.append(i)
-        peak_height.append(float(x[i]))
-
+        peak_height_pos.append([float(x[i]),i])
+        
     #print(peak_pos)
     #print(peak_height)
-    peak_height, peak_pos = zip(*sorted(zip(peak_height, peak_pos), reverse=True))
+    if len(peak_height_pos)>0:
+      peak_height_pos = sorted(peak_height_pos, reverse=True)
     #print(peak_height)
     #print(peak_pos)
     #print(len(x))
     
     n_max = 3
-    for i_max in range(min(len(peak_height),n_max)):
-      tbModel.setNumVal(round(float(len(x))/float(peak_pos[i_max]),2), iDataSet, "F"+str(i_max+1)+"_R"+str(i_roi+1))
-      tbModel.setNumVal(int(peak_height[i_max]), iDataSet, "A"+str(i_max+1)+"_R"+str(i_roi+1))
+    for i_max in range(min(len(peak_height_pos),n_max)):
+      tbModel.setNumVal(round(float(len(x))/float(peak_height_pos[i_max][1]),2), iDataSet, "F"+str(i_max+1)+"_R"+str(i_roi+1))
+      tbModel.setNumVal(int(peak_height_pos[i_max][0]), iDataSet, "A"+str(i_max+1)+"_R"+str(i_roi+1))
         
 
 #
