@@ -91,7 +91,7 @@ def analyze(iDataSet, tbModel, p, output_folder):
 
   filepath = tbModel.getFileAPth(iDataSet, "RAW", "IMG")
   filename = tbModel.getFileName(iDataSet, "RAW", "IMG") 
-  print("Loading: "+filepath)
+  print("Analyzing: "+filepath)
   IJ.run("Bio-Formats Importer", "open=["+filepath+"] color_mode=Default view=Hyperstack stack_order=XYCZT");
   imp = IJ.getImage()
   
@@ -205,7 +205,7 @@ def analyze(iDataSet, tbModel, p, output_folder):
     imp_fft.show()
 
     # Analyze FFt
-    IJ.run(imp_fft, "Gaussian Blur 3D...", "x=0 y=0 z=3");
+    IJ.run(imp_fft, "Gaussian Blur 3D...", "x=0 y=0 z=1.5");
     IJ.run(imp_fft, "Plot Z-axis Profile", "");
     output_file = filename+"--Region"+str(i_roi+1)+"--fft.tif"
     IJ.saveAs(IJ.getImage(), "TIFF", os.path.join(output_folder, output_file))
@@ -222,22 +222,19 @@ def analyze(iDataSet, tbModel, p, output_folder):
     peak_height_pos = []
     x_min = 10
     for i in range(x_min,len(x)/2):
-      if (x[i]>x[i-1]) and (x[i]>x[i+1]):
+      before = x[i-1]
+      center = x[i]
+      after = x[i+1]
+      if (center>before) and (center>after):
         peak_height_pos.append([float(x[i]),i])
         
-    #print(peak_pos)
-    #print(peak_height)
     if len(peak_height_pos)>0:
       peak_height_pos = sorted(peak_height_pos, reverse=True)
-    #print(peak_height)
-    #print(peak_pos)
-    #print(len(x))
     
     n_max = 3
     for i_max in range(min(len(peak_height_pos),n_max)):
       tbModel.setNumVal(round(float(len(x))/float(peak_height_pos[i_max][1]),2), iDataSet, "F"+str(i_max+1)+"_R"+str(i_roi+1))
       tbModel.setNumVal(int(peak_height_pos[i_max][0]), iDataSet, "A"+str(i_max+1)+"_R"+str(i_roi+1))
-        
 
 #
 # ANALYZE INPUT FILES
