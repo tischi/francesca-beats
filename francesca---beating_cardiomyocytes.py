@@ -8,9 +8,7 @@ from ij.process import StackStatistics
 from ij.plugin import ImageCalculator
 from ij.measure import ResultsTable
 from ij.plugin.frame import RoiManager
-import os
-import os.path
-import re
+import os, os.path, re, sys
 from jarray import array
 from ij.process import ImageConverter
 import math
@@ -93,7 +91,7 @@ def analyze(iDataSet, tbModel, p, output_folder):
 
   filepath = tbModel.getFileAPth(iDataSet, "RAW", "IMG")
   filename = tbModel.getFileName(iDataSet, "RAW", "IMG") 
-  print("loading: "+filepath)
+  print("Loading: "+filepath)
   IJ.run("Bio-Formats Importer", "open=["+filepath+"] color_mode=Default view=Hyperstack stack_order=XYCZT");
   imp = IJ.getImage()
   
@@ -172,7 +170,7 @@ def analyze(iDataSet, tbModel, p, output_folder):
     roi = rm.getRoi(i)
     diameter_roi.append([roi.getFeretsDiameter(), roi])
   diameter_roi = sorted(diameter_roi, reverse=True)
-  print diameter_roi
+  #print diameter_roi
 
   rm.reset()
   for i in range(min(len(diameter_roi), p["n_rois"])):
@@ -232,9 +230,9 @@ def analyze(iDataSet, tbModel, p, output_folder):
     #print(peak_pos)
     #print(peak_height)
     peak_height, peak_pos = zip(*sorted(zip(peak_height, peak_pos), reverse=True))
-    print(peak_height)
-    print(peak_pos)
-    print(len(x))
+    #print(peak_height)
+    #print(peak_pos)
+    #print(len(x))
     
     n_max = 3
     for i_max in range(min(len(peak_height),n_max)):
@@ -246,14 +244,15 @@ def analyze(iDataSet, tbModel, p, output_folder):
 # ANALYZE INPUT FILES
 #
 def determine_input_files(foldername, tbModel):
-  
+
+  print("Determine input files in:",foldername)
   pattern = re.compile('(.*).czi') 
   #pattern = re.compile('(.*)--beats.tif') 
    
   i = 0
   for root, directories, filenames in os.walk(foldername):
 	for filename in filenames:
-	   print(filename)
+	   print("Checking:", filename)
 	   if filename == "Thumbs.db":
 	     continue
 	   match = re.search(pattern, filename)
@@ -261,6 +260,8 @@ def determine_input_files(foldername, tbModel):
 	     continue
 	   tbModel.addRow()
 	   tbModel.setFileAPth(foldername, filename, i, "RAW","IMG")
+	   print("Accepted:", filename)
+	   
 	   i += 1
     
   return(tbModel)
@@ -286,15 +287,21 @@ def get_parameters(p, num_data_sets):
 
     
 if __name__ == '__main__':
+
+  print("")
+  print("#")
+  print("# Beating Analysis")
+  print("#")
+  print("")
   
   #
   # GET INPUT FOLDER
   #
-  od = OpenDialog("Click on one of the image files in the folder to be analysed", None	)
+  od = OpenDialog("Click on one of the image files in the folder to be analysed", None)
   input_folder = od.getDirectory()
-  #input_folder = "C:/Users/almf/Desktop/kaia/data/"
   if input_folder is None:
-    fff
+    sys.exit("No folder selected!")
+    
 
   #
   # MAKE OUTPUT FOLDER
